@@ -1,0 +1,493 @@
+LookML Project Organization Best Practices
+Aligned with Looker Implementation Review Guidance
+Version: Generic, company independent
+
+Purpose
+This document defines a company independent best practice for structuring, governing, and maintaining LookML projects. It is aligned with Looker Professional Services implementation guidance and is intended to scale across teams, domains, and release cycles.
+
+Core Design Principles
+1. Separation of concerns
+Views define fields. Explores define relationships. Models define access and wiring.
+2. Explicit over implicit
+Explicit joins, relationships, includes, and access rules outperform clever shortcuts.
+3. Performance by design
+Structure projects so validation, SQL generation, and user queries remain fast as the codebase grows.
+4. Governance first
+Assume multiple teams, different audiences, and evolving security needs.
+5. Protect end users
+Expose curated, business friendly fields and hides raw or risky columns.
+
+Recommended Repository Structure
+
+/models
+  finance.model.lkml
+  marketing.model.lkml
+  operations.model.lkml
+
+/views
+  /common
+  /staging
+  /core
+  /marts
+
+/explores
+  /finance
+  /marketing
+  /operations
+
+/admin
+  access_grants.lkml
+  datagroups.lkml
+  constants.lkml
+  named_value_formats.lkml
+
+/docs
+/README.md
+
+Intent of each layer
+models
+  Defines user facing portals into data. Controls access, includes, datagroups, and explore exposure.
+views
+  Defines fields and business logic. No joins.
+explores
+  Defines join graphs and user navigation.
+admin
+  Centralized governance and reusable configuration.
+
+Models
+Best practices
+Models must remain small, stable, and boring. They should feel like configuration files.
+
+Model responsibilities
+- Database connection
+- Explicit includes of views and explores
+- Datagroup declarations
+- Named value formats
+- Map layers and constants
+
+Model restrictions
+- No view declarations
+- No complex SQL logic
+- No wildcard includes across the entire project
+
+Include strategy
+Avoid broad wildcards such as /**/*.view.lkml.
+Instead, include folders deliberately to reduce validation time and blast radius.
+
+Example concept
+Include common views
+Include domain specific views
+Include only the explores intended for that model
+
+Models and access
+Use multiple models to separate audiences, release cycles, or access boundaries.
+Prefer model sets over access_grants for scalable access control.
+Each model should ideally map to a single database connection.
+
+Views
+Definition
+A view defines a list of dimensions and measures tied to a table or derived table.
+
+View best practices
+- One view per logical entity
+- Primary keys defined on every view, including derived tables
+- Raw database fields hidden unless analytically meaningful
+- Business friendly labels and descriptions applied consistently
+
+Field hygiene
+- Hide surrogate keys unless needed for drilling or joins
+- Rename ambiguous fields explicitly
+- Avoid exposing auto generated database columns
+
+Naming conventions
+Boolean dimensions should be phrased as questions, such as is_active or has_churned.
+Ratio measures must clearly express the numerator and denominator.
+
+Formatting
+Prefer named_value_format for reusable formatting.
+Use value_format sparingly for one off cases only.
+
+Derived tables
+Use derived tables when logic is tightly bound to the entity.
+Prefer upstream transformations for heavy joins or large aggregations.
+Use persist_with and datagroups instead of persist_for except for suggestion population.
+
+Reuse patterns
+Use extends to avoid duplication.
+Use sets for drill_fields and explore field curation.
+
+Explores
+Definition
+An Explore defines how users query data. It is the semantic product surface.
+
+Explore best practices
+- One explore per file
+- Clear description, label, and view_label
+- Built from the most granular fact table
+- Few joins with explicit relationships
+
+Join rules
+- Always use raw fields in join conditions
+- Never apply SQL functions inside sql_on
+- Avoid joining on aggregated or transformed fields
+- Explicitly set relationship to avoid symmetric aggregates
+
+Join composition
+Avoid mixing many relationship types in a single explore.
+Limit the number of joined views to what the use case requires.
+
+Explore curation
+Use fields or sets to control visible fields.
+Hide helper explores used for suggestions or one off dashboards.
+Avoid mega explores that attempt to serve all use cases.
+
+Projects
+When to split projects
+Split projects when:
+- Teams are siloed with limited overlap
+- Deployment cycles differ
+- Validation time becomes excessive
+- Multiple database connections are required
+
+Project import
+Use project import to centralize common logic.
+Import shared views, constants, and base metrics.
+Avoid importing explores unless intentionally shared.
+
+Manifest file
+Use a manifest file to:
+- Enable project import
+- Declare constants
+- Enforce DRY patterns across projects
+
+Performance
+Join performance
+- Joins must never include date transformations or functions
+- Join on raw partition keys where possible
+
+Dashboard design
+- Prefer fewer tiles
+- Avoid excessive pivots and table calculations
+- Limit dashboards to approximately 25 tiles
+
+Caching and refresh
+- Align PDT refresh with data pipelines via datagroups
+- Restrict auto refresh permissions
+- Avoid frequent auto refresh intervals
+
+Query discipline
+- Use queries without row limits sparingly
+- Hide unused fields to reduce query cost
+- Reuse queries across dashboard tiles where possible
+
+Security
+Access control strategy
+- Prefer model sets over access_grants for scalability
+- Use access_grants for sensitive field level control
+- Use access_filters or sql_always_where for row level security
+
+Connection security
+- Use parameterized connections where OAuth is not possible
+- Restrict write access to PDT override credentials only
+
+Governance
+- Document access scenarios and map them to models
+- Manage roles through group membership
+- Disable or audit public content regularly
+
+Development Process
+Version control
+All development occurs via git. Personal dev branches are not a release strategy.
+
+Review and quality
+- Enforce code reviews
+- Apply a LookML style guide
+- Enable linting before production deploys
+- Periodically audit unused fields, views, and explores
+
+Tooling
+Adopt tooling to monitor LookML complexity and usage.
+Remove unused content regularly.
+
+Documentation
+Each file should contain a header comment describing its purpose.
+A changelog or history section should be maintained for models.
+
+Constants and reuse
+Use constants for repeated labels, HTML snippets, table names, and patterns.
+Use LookML substitution syntax instead of raw table references.
+
+Anti Patterns to Avoid
+- Wildcard includes across the entire project
+- Missing primary keys in views
+- SQL functions inside join conditions
+- Mega explores serving unrelated use cases
+- Exposing raw database columns to users
+- Commented out deprecated code instead of deletion
+
+Recommended File Counts
+One view per logical entity.
+One explore per file.
+Few stable models.
+Split files when they become hard to review or frequently conflict.
+
+Standard README Outline
+Project purpose
+Folder structure
+Naming conventions
+How to add a view
+How to add an explore
+Access and governance rules
+Release checklist
+
+End of document
+"""
+
+path = Path("/mnt/data/looker_lookml_best_practices_looker_aligned.txt")
+path.write_text(content, encoding="utf-8")
+str(path)
+
+Analyzed
+Always show details
+
+from pathlib import Path
+
+content = """LookML Project Organization Best Practices
+Aligned with Looker Implementation Review Guidance
+Version: Generic, company independent
+Updated: 2025-02
+
+Purpose
+This document defines a company independent best practice for structuring, governing, and maintaining LookML projects. It is aligned with Looker Professional Services implementation guidance and is intended to scale across teams, domains, and release cycles.
+
+Core Design Principles
+1. Separation of concerns
+Views define fields. Explores define relationships. Models define access and wiring.
+2. Explicit over implicit
+Explicit joins, relationships, includes, and access rules outperform clever shortcuts.
+3. Performance by design
+Structure projects so validation, SQL generation, and user queries remain fast as the codebase grows.
+4. Governance first
+Assume multiple teams, different audiences, and evolving security needs.
+5. Protect end users
+Expose curated, business friendly fields and hides raw or risky columns.
+
+Recommended Repository Structure
+
+/models
+  finance.model.lkml
+  marketing.model.lkml
+  operations.model.lkml
+
+/views
+  /common
+  /staging
+  /core
+  /marts
+
+/explores
+  /finance
+  /marketing
+  /operations
+
+/admin
+  access_grants.lkml
+  datagroups.lkml
+  constants.lkml
+  named_value_formats.lkml
+
+/docs
+/README.md
+
+Intent of each layer
+models
+  Defines user facing portals into data. Controls access, includes, datagroups, and explore exposure.
+views
+  Defines fields and business logic. No joins.
+explores
+  Defines join graphs and user navigation.
+admin
+  Centralized governance and reusable configuration.
+
+Models
+Best practices
+Models must remain small, stable, and boring. They should feel like configuration files.
+
+Model responsibilities
+- Database connection
+- Explicit includes of views and explores
+- Datagroup declarations
+- Named value formats
+- Map layers and constants
+
+Model restrictions
+- No view declarations
+- No complex SQL logic
+- No wildcard includes across the entire project
+
+Include strategy
+Avoid broad wildcards such as /**/*.view.lkml.
+Instead, include folders deliberately to reduce validation time and blast radius.
+
+Models and access
+Use multiple models to separate audiences, release cycles, or access boundaries.
+Prefer model sets over access_grants for scalable access control.
+Each model should ideally map to a single database connection.
+
+Views
+Definition
+A view defines a list of dimensions and measures tied to a table or derived table.
+
+View best practices
+- One view per logical entity
+- Primary keys defined on every view, including derived tables
+- Raw database fields hidden unless analytically meaningful
+- Business friendly labels and descriptions applied consistently
+
+Field hygiene
+- Hide surrogate keys unless needed for drilling or joins
+- Rename ambiguous fields explicitly
+- Avoid exposing auto generated database columns
+
+Naming conventions
+Boolean dimensions should be phrased as questions, such as is_active or has_churned.
+Ratio measures must clearly express the numerator and denominator.
+
+Formatting
+Prefer named_value_format for reusable formatting.
+Use value_format sparingly for one off cases only.
+
+Derived tables
+Use derived tables when logic is tightly bound to the entity.
+Prefer upstream transformations for heavy joins or large aggregations.
+Use persist_with and datagroups instead of persist_for except for suggestion population.
+
+Reuse patterns
+Use extends to avoid duplication.
+Use sets for drill_fields and explore field curation.
+
+Explores
+Definition
+An Explore defines how users query data. It is the semantic product surface.
+
+Explore best practices
+- One explore per file
+- Clear description, label, and view_label
+- Built from the most granular fact table
+- Few joins with explicit relationships
+
+Join rules
+- Always use raw fields in join conditions
+- Never apply SQL functions inside sql_on
+- Avoid joining on aggregated or transformed fields
+- Explicitly set relationship to avoid symmetric aggregates
+
+Join composition
+Avoid mixing many relationship types in a single explore.
+Limit the number of joined views to what the use case requires.
+
+Explore curation
+Use fields or sets to control visible fields.
+Hide helper explores used for suggestions or one off dashboards.
+Avoid mega explores that attempt to serve all use cases.
+
+Projects
+When to split projects
+Split projects when:
+- Teams are siloed with limited overlap
+- Deployment cycles differ
+- Validation time becomes excessive
+- Multiple database connections are required
+
+Project import
+Use project import to centralize common logic.
+Import shared views, constants, and base metrics.
+Avoid importing explores unless intentionally shared.
+
+Manifest file
+Use a manifest file to:
+- Enable project import
+- Declare constants
+- Enforce DRY patterns across projects
+
+Performance
+Join performance
+- Joins must never include date transformations or functions
+- Join on raw partition keys where possible
+
+Dashboard design
+- Prefer fewer tiles
+- Avoid excessive pivots and table calculations
+- Limit dashboards to approximately 25 tiles
+
+Caching and refresh
+- Align PDT refresh with data pipelines via datagroups
+- Restrict auto refresh permissions
+- Avoid frequent auto refresh intervals
+
+Query discipline
+- Use queries without row limits sparingly
+- Hide unused fields to reduce query cost
+- Reuse queries across dashboard tiles where possible
+
+Security
+Access control strategy
+- Prefer model sets over access_grants for scalability
+- Use access_grants for sensitive field level control
+- Use access_filters or sql_always_where for row level security
+
+Connection security
+- Use parameterized connections where OAuth is not possible
+- Restrict write access to PDT override credentials only
+
+Governance
+- Document access scenarios and map them to models
+- Manage roles through group membership
+- Disable or audit public content regularly
+
+Development Process
+Version control
+All development occurs via git. Personal dev branches are not a release strategy.
+
+Review and quality
+- Enforce code reviews
+- Apply a LookML style guide
+- Enable linting before production deploys
+- Periodically audit unused fields, views, and explores
+
+Tooling
+Adopt tooling to monitor LookML complexity and usage.
+Remove unused content regularly.
+
+Documentation
+Each file should contain a header comment describing its purpose.
+A changelog or history section should be maintained for models.
+
+Constants and reuse
+Use constants for repeated labels, HTML snippets, table names, and patterns.
+Use LookML substitution syntax instead of raw table references.
+
+Anti Patterns to Avoid
+- Wildcard includes across the entire project
+- Missing primary keys in views
+- SQL functions inside join conditions
+- Mega explores serving unrelated use cases
+- Exposing raw database columns to users
+- Commented out deprecated code instead of deletion
+
+Recommended File Counts
+One view per logical entity.
+One explore per file.
+Few stable models.
+Split files when they become hard to review or frequently conflict.
+
+Standard README Outline
+Project purpose
+Folder structure
+Naming conventions
+How to add a view
+How to add an explore
+Access and governance rules
+Release checklist
+
+End of document
