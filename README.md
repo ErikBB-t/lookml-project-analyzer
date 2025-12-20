@@ -1,75 +1,75 @@
-# 🔎 LookML Structure Analyzer
+# LookML Structure Analyzer
 
-En enkel web-applikasjon for å analysere strukturen i et Looker (LookML) prosjekt. Applikasjonen tar en URL til et GitHub-repository som input, analyserer alle `.model.lkml`-filer for å finne "explores" og "joins", og kartlegger dem mot de underliggende "views".
+A simple web application to analyze the structure of a Looker (LookML) project. The application takes a URL to a GitHub repository as input, analyzes all `.model.lkml` files to find "explores" and "joins", and maps them to the underlying "views".
 
-Dette gir en oversikt over hvilke views som er i bruk, hvor de brukes, og hvilken mappe de tilhører.
+This provides an overview of which views are in use, where they are used, and which folder they belong to.
 
-## Funksjoner
+## Features
 
--   **Web-basert UI:** Et enkelt grensesnitt bygget med Streamlit.
--   **Analyser fra GitHub:** Lim inn en link til et hvilket som helst offentlig LookML-repository på GitHub.
--   **Interaktiv Tabell:** Resultatene vises i en oversiktlig og søkbar tabell.
--   **Eksporter til CSV:** Last ned analyseresultatene som en CSV-fil for videre bruk.
--   **Ingen lokal LookML nødvendig:** Hele analysen kjøres "on-the-fly" ved å klone repoet midlertidig.
+-   **Web-based UI:** A simple interface built with Streamlit.
+-   **Analyze from GitHub:** Paste a link to any public LookML repository on GitHub.
+-   **Interactive Table:** The results are displayed in a clear and searchable table.
+-   **Export to CSV:** Download the analysis results as a CSV file for further use.
+-   **No local LookML required:** The entire analysis is run on-the-fly by temporarily cloning the repository.
 
-## Installasjon og Oppsett
+## Installation and Setup
 
-Applikasjonen krever Python 3. For å unngå konflikter med system-pakker, anbefales det sterkt å bruke et virtuelt miljø.
+The application requires Python 3. To avoid conflicts with system packages, it is strongly recommended to use a virtual environment.
 
-**1. Klon eller last ned repoet:**
+**1. Clone or download the repository:**
 
-Hvis du har `git` installert:
+If you have `git` installed:
 ```bash
-git clone https://github.com/din-bruker/LookML-structure.git
+git clone https://github.com/your-username/LookML-structure.git
 cd LookML-structure
 ```
-Ellers kan du laste ned filene (`app.py`, `list_used_views.py`, `requirements.txt`) og plassere dem i samme mappe.
+Otherwise, you can download the files (`app.py`, `list_used_views.py`, `requirements.txt`) and place them in the same folder.
 
-**2. Opprett et virtuelt miljø:**
+**2. Create a virtual environment:**
 
-Naviger til prosjektmappen i terminalen og kjør:
+Navigate to the project folder in your terminal and run:
 ```bash
 python3 -m venv venv
 ```
-Dette lager en ny mappe `venv` som vil inneholde alle prosjektets avhengigheter.
+This creates a new folder `venv` that will contain all the project's dependencies.
 
-**3. Installer avhengigheter:**
+**3. Install dependencies:**
 
-Installer de nødvendige Python-bibliotekene inn i det virtuelle miljøet:
+Install the required Python libraries into the virtual environment:
 ```bash
 ./venv/bin/pip install -r requirements.txt
 ```
-Dette installerer Streamlit, Pandas og andre nødvendige pakker.
+This installs Streamlit, Pandas, and other necessary packages.
 
-## Hvordan bruke appen
+## How to use the app
 
-Når installasjonen er fullført, kan du starte applikasjonen.
+Once the installation is complete, you can start the application.
 
-**1. Start Streamlit-serveren:**
+**1. Start the Streamlit server:**
 
-Pass på at du er i prosjektmappen og kjør:
+Make sure you are in the project folder and run:
 ```bash
 ./venv/bin/streamlit run app.py
 ```
 
-**2. Åpne i nettleseren:**
+**2. Open in your browser:**
 
-Etter å ha kjørt kommandoen over, vil en ny fane automatisk åpnes i nettleseren din. Hvis ikke, kan du navigere til `http://localhost:8501`.
+After running the command above, a new tab will automatically open in your browser. If not, you can navigate to `http://localhost:8501`.
 
-**3. Analyser et repository:**
+**3. Analyze a repository:**
 
--   Finn URL-en til et LookML-prosjekt på GitHub (f.eks. `https://github.com/looker-open-source/looker-ios-sdk`).
--   Lim inn URL-en i tekstfeltet i applikasjonen.
--   Klikk på "Analyser repo".
--   Appen vil klone repoet, kjøre analysen og vise resultatene.
+-   Find the URL of a LookML project on GitHub (e.g., `https://github.com/looker-open-source/looker-ios-sdk`).
+-   Paste the URL into the text field in the application.
+-   Click "Analyze repo".
+-   The app will clone the repository, run the analysis, and display the results.
 
-## Hvordan det fungerer
+## How it works
 
-Applikasjonen utfører følgende steg:
-1.  **Input:** Tar imot en GitHub URL fra brukeren.
-2.  **Klone:** Bruker `git` til å laste ned en midlertidig kopi av repoet.
-3.  **Kartlegge Views:** Skanner `views`-mappen for å lage en oversikt over alle `.view.lkml`-filer og deres plassering.
-4.  **Parse Modeller:** Leser hver `.model.lkml`-fil i `models`-mappen. Den fjerner kommentarer og bruker regulære uttrykk for å identifisere `explore`- og `join`-blokker.
-5.  **Identifisere koblinger:** For hver explore og join finner den det faktiske view-navnet som brukes (håndterer `from:` og `view_name:`).
-6.  **Presentere data:** Samler all informasjonen i en Pandas DataFrame som vises i en interaktiv tabell i Streamlit.
-7.  **Opprydding:** Sletter den midlertidige mappen med det klonede repoet.
+The application performs the following steps:
+1.  **Input:** Accepts a GitHub URL from the user.
+2.  **Clone:** Uses `git` to download a temporary copy of the repository.
+3.  **Map Views:** Scans the `views` folder to create an overview of all `.view.lkml` files and their locations.
+4.  **Parse Models:** Reads each `.model.lkml` file in the `models` folder. It removes comments and uses regular expressions to identify `explore` and `join` blocks.
+5.  **Identify connections:** For each explore and join, it finds the actual view name used (handles `from:` and `view_name:`).
+6.  **Present data:** Gathers all the information into a Pandas DataFrame which is displayed in an interactive table in Streamlit.
+7.  **Cleanup:** Deletes the temporary folder with the cloned repository.
