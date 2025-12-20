@@ -314,7 +314,7 @@ def generate_assessment(summary: dict) -> str:
 
     # --- Build Final Output ---
     if not negatives:
-        output = "### ✅ All Good\n"
+        output = "### All Good...\n"
         output += "This project adheres to all checked LookML best practices."
         if positives:
             output += "<br><br>**Positive Findings**"
@@ -322,12 +322,12 @@ def generate_assessment(summary: dict) -> str:
         return output
 
     # --- Build Section for Recommendations ---
-    output = "### 💡 Recommendations for Improvement\n<ul>"
+    output = "### Recommendations for Improvement\n<ul>"
     output += "".join(f"<li>{n}</li>" for n in negatives)
     output += "</ul>"
 
     if positives:
-        output += "<br>### ✅ Positive Findings\n<ul>" + "".join(f"<li>{p}</li>" for p in positives) + "</ul>"
+        output += "<br>### Positive Findings\n<ul>" + "".join(f"<li>{p}</li>" for p in positives) + "</ul>"
 
     return output
 
@@ -347,7 +347,7 @@ with st.sidebar:
         placeholder="https://github.com/looker-open-source/looker-ios-sdk",
     )
 
-    analyze_button = st.button("Analyze Repository", use_container_width=True, type="primary")
+    analyze_button = st.button("Analyze Looker Project", use_container_width=True, type="primary")
 
 # --- Main Page ---
 st.header("Analysis Results")
