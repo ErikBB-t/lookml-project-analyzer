@@ -6,15 +6,15 @@ This provides an overview of which views are in use, where they are used, and wh
 
 ## Features
 
--   **Web-based UI:** A simple interface built with Streamlit for quickly exploring LookML project structure.
--   **Analyze from GitHub:** Paste a link to any public LookML repository on GitHub and analyze it without cloning or running Looker locally.
--   **Explore and join mapping:** Analyzes `.model.lkml` files to identify explores and joins and resolves them to the actual underlying views, including support for `from:` and `view_name:`.
--   **View usage overview:** Shows which views are in use, where they are used, and which explores and model files depend on them.
--   **Project structure mapping:** Maps each view to its folder within the `views` directory to make ownership and domain boundaries visible.
--   **Documentation coverage analysis:** Calculates the percentage of fields in each view that have descriptions to help assess documentation quality.
--   **Interactive Table:** The results are displayed in a clear and searchable table.
--   **Export to CSV:** Download the analysis results as a CSV file for further use in refactoring, audits, or governance work.
--   **No local LookML required:** The entire analysis is run on-the-fly by temporarily cloning the repository.
+-   **Web-based UI:** A Streamlit-based interface for exploring and understanding LookML project structure.
+-   **Analyze from GitHub:** Analyze any public LookML repository directly from a GitHub URL, without running Looker or cloning locally.
+-   **Dependency and usage mapping:** Maps explores and joins to their underlying views, showing where views are used, from which models, and across which domains. Supports `from:` and `view_name:`.
+-   **Project structure and ownership visibility:** Connects views to their folder structure to make domain boundaries and reuse across areas explicit.
+-   **Documentation and best practice feedback:** Measures field description coverage and provides basic feedback compared to common LookML best practices.
+-   **Interactive graph visualization:** Explore view and explore dependencies through an interactive node-based graph.
+-   **Export to CSV:** Export the full analysis for refactoring, audits, governance, or further processing.
+-   **No local LookML required:** Runs entirely offline by temporarily cloning the repository for analysis.
+
 
 
 ## Installation and Setup
