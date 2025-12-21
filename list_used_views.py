@@ -1,3 +1,4 @@
+
 import os
 import re
 import csv
@@ -60,6 +61,47 @@ def get_view_description_stats(views_dir: str) -> dict:
             }
 
     return stats
+
+
+def get_view_extensions(views_dir: str) -> dict:
+    """
+    Scans all .view.lkml files in a directory and for each view,
+    finds the views it extends.
+    Returns a dict mapping view name to a space-separated list of extended views.
+    """
+    extensions = {}
+    if not os.path.isdir(views_dir):
+        return extensions
+
+    for root, _, files in os.walk(views_dir):
+        for file in files:
+            if not file.endswith(".view.lkml"):
+                continue
+
+            file_path = os.path.join(root, file)
+
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+            except Exception as e:
+                print(f"Error reading view file {file_path}: {e}", file=sys.stderr)
+                continue
+
+            content = strip_lookml_comments(content)
+            view_blocks = extract_named_blocks(content, "view")
+
+            for view_block in view_blocks:
+                view_name = view_block["name"]
+                view_body = view_block["body"]
+
+                match = re.search(r"\bextends\s*:\s*\[([^\]]*)\]", view_body)
+                if match:
+                    extended_list = [v.strip() for v in match.group(1).split(",") if v.strip()]
+                    extensions[view_name] = " ".join(extended_list)
+                else:
+                    if view_name not in extensions:
+                        extensions[view_name] = ""
+    return extensions
 
 
 def map_views_to_folders(views_dir: str) -> dict:
@@ -207,6 +249,10 @@ def main():
     description_stats = get_view_description_stats(views_dir)
     print("...done.\n", file=sys.stderr)
 
+    print(f"Scanning '{views_dir}' for view extensions...", file=sys.stderr)
+    view_extensions = get_view_extensions(views_dir)
+    print("...done.\n", file=sys.stderr)
+
 
     if not os.path.isdir(models_dir):
         print(f"Error: Directory '{models_dir}' not found in the current location.", file=sys.stderr)
@@ -215,7 +261,7 @@ def main():
     csv_rows = []
     csv_rows.append([
         "Model Path", "Explore Name", "Role", "View Name", "Join Name", "View Folder",
-        "Fields with Description", "Total Fields", "Description Coverage (%)"
+        "Fields with Description", "Total Fields", "Description Coverage (%)", "Extends On"
     ])
 
     models_found = 0
@@ -244,6 +290,7 @@ def main():
             for r in usage_rows:
                 view_name = r["view_name"]
                 folder = view_to_folder.get(view_name, "Ukjent")
+                extends_on = view_extensions.get(view_name, "")
 
                 stats = description_stats.get(view_name, {})
                 fields_with_desc = stats.get("fields_with_description", "N/A")
@@ -261,6 +308,7 @@ def main():
                         fields_with_desc,
                         total_fields,
                         desc_percentage,
+                        extends_on,
                     ]
                 )
 

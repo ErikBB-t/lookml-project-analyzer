@@ -1,4 +1,4 @@
-# LookML Structure Analyzer
+# LookML Project Analyzer
 
 A simple web application to analyze the structure of a Looker (LookML) project. The application takes a URL to a GitHub repository as input, analyzes all `.model.lkml` files to find "explores" and "joins", and maps them to the underlying "views".
 
