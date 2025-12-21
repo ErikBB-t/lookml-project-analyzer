@@ -1,88 +1,423 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>LookML Interactive Graph</title>
-    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-    <style type="text/css">
-        #lookml-graph {
-            width: 100%;
-            height: 600px;
-            border: 1px solid #4d4d4d;
-            border-radius: 8px;
-            background-color: #262730;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>LookML Interactive Graph</title>
+  <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <style>
+    :root {
+      --bg: #262730;
+      --panel: #1f2028;
+      --border: #4d4d4d;
+      --text: #FAFAFA;
+      --muted: #B9BDC8;
+      --accent: #4A90E2;
+      --joined: #2ecc71;
+    }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+    .toolbar .group {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    label {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    select, button {
+      background: #2b2c36;
+      color: var(--text);
+      border: 1px solid #3a3b46;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 13px;
+      outline: none;
+    }
+    button { cursor: pointer; }
+    button:hover { border-color: var(--accent); }
+    #lookml-graph {
+      width: 100%;
+      height: 70vh;
+      min-height: 560px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background-color: var(--bg);
+      box-sizing: border-box;
+      margin: 12px;
+      touch-action: none;
+      overscroll-behavior: contain;
+    }
+    .pill {
+      display: inline-block;
+      padding: 3px 8px;
+      border: 1px solid #3a3b46;
+      border-radius: 999px;
+      margin-left: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      background: #2b2c36;
+      white-space: nowrap;
+    }
+    :fullscreen #lookml-graph {
+      height: calc(100vh - 62px);
+      margin: 0;
+      border-radius: 0;
+      border: none;
+    }
+    :fullscreen .toolbar { border-bottom: 1px solid var(--border); }
+  </style>
 </head>
 <body>
 
-<div id="lookml-graph"></div>
+  <div class="toolbar">
+    <div class="group">
+      <label for="modelFilter">Model</label>
+      <select id="modelFilter"></select>
+    </div>
+    <div class="group">
+      <label for="exploreFilter">Explore</label>
+      <select id="exploreFilter"></select>
+    </div>
+    <div class="group">
+      <label for="viewFilter">View</label>
+      <select id="viewFilter"></select>
+    </div>
+    <div class="group">
+      <button id="resetBtn" type="button">Reset</button>
+      <button id="fitBtn" type="button">Fit</button>
+      <button id="layoutBtn" type="button">Layout</button>
+      <button id="fullscreenBtn" type="button">Fullscreen</button>
+      <span class="pill" id="statsPill">Ready</span>
+    </div>
+  </div>
+
+  <div id="lookml-graph"></div>
 
 <script type="text/javascript">
-    // This placeholder will be replaced by the actual graph data from Python
-    const graphData = %%graph_data%%;
+  const graphData = %%graph_data%%;
+  const container = document.getElementById("lookml-graph");
+  const statsPill = document.getElementById("statsPill");
 
-    const container = document.getElementById('lookml-graph');
-    const options = {
-        nodes: {
-            shape: 'box',
-            margin: 10,
-            font: {
-                color: '#FAFAFA',
-                face: 'monospace'
-            },
-            borderWidth: 2,
-            shadow: true
-        },
-        edges: {
-            arrows: 'to',
-            color: {
-                color: '#848484',
-                highlight: '#4A90E2',
-                hover: '#4A90E2'
-            },
-            font: {
-                align: 'top',
-                color: '#EAECEF'
-            },
-            smooth: {
-                type: 'cubicBezier'
+  container.addEventListener("wheel", (e) => { e.preventDefault(); }, { passive: false });
+  container.addEventListener("gesturestart", (e) => e.preventDefault());
+  container.addEventListener("gesturechange", (e) => e.preventDefault());
+  container.addEventListener("gestureend", (e) => e.preventDefault());
+
+  const nodes = new vis.DataSet(graphData.nodes || []);
+  const edges = new vis.DataSet(graphData.edges || []);
+
+  function safeText(v) { return (v === undefined || v === null) ? "" : String(v); }
+  function isModelNode(n) { return n.group === "model"; }
+  function isExploreNode(n) { return n.group === "explore"; }
+  function isViewNode(n) { return (n.group || "").startsWith("view"); }
+  function getNodeName(n) { return safeText(n.label || n.id); }
+
+  function buildExploreToModelMap() {
+    const map = new Map();
+    const nodeById = new Map(nodes.get({ fields: ['id', 'group'] }).map(n => [n.id, n]));
+    edges.get().forEach(e => {
+      const from = nodeById.get(e.from);
+      const to = nodeById.get(e.to);
+      if (!from || !to) return;
+      if (isModelNode(from) && isExploreNode(to)) map.set(to.id, from.id);
+      if (isExploreNode(from) && isModelNode(to)) map.set(from.id, to.id);
+    });
+    return map;
+  }
+  let exploreToModel = buildExploreToModelMap();
+
+  const options = {
+    autoResize: true,
+    nodes: {
+      shape: "box",
+      margin: 10,
+      font: { color: "#FAFAFA", face: "monospace" },
+      borderWidth: 2,
+      shadow: false
+    },
+    edges: {
+      arrows: { to: { enabled: true, scaleFactor: 0.6 } },
+      color: { color: "#848484", highlight: "#4A90E2", hover: "#4A90E2" },
+      smooth: false,
+      width: 1
+    },
+    interaction: {
+      hover: true,
+      tooltipDelay: 200,
+      keyboard: true,
+      dragView: true,
+      zoomView: true,
+      zoomSpeed: 0.5,
+      hideEdgesOnDrag: true,
+      hideEdgesOnZoom: true
+    },
+    physics: {
+      enabled: true,
+      solver: "barnesHut",
+      barnesHut: {
+        gravitationalConstant: -12000,
+        centralGravity: 0.12,
+        springLength: 130,
+        springConstant: 0.03,
+        damping: 0.35,
+        avoidOverlap: 0.8
+      },
+      stabilization: {
+        enabled: true,
+        iterations: 220,
+        updateInterval: 25,
+        fit: true
+      },
+      maxVelocity: 25,
+      minVelocity: 0.3
+    },
+    groups: {
+      explore: { color: { background: "#EA4336", border: "#5F5F67" }, shape: "hexagon" },
+      view: { color: { background: "#FBBB07", border: "#5F5F67" } },
+      view_joined: { color: { background: "#2ecc71", border: "#5F5F67" } },
+      model: { color: { background: "#4285F4", border: "#5F5F67" }, shape: "database" }
+    }
+  };
+
+  const network = new vis.Network(container, { nodes, edges }, options);
+
+  function resetViewColors() {
+    const allViewNodes = nodes.get({ filter: isViewNode, fields: ['id'] });
+    const updates = allViewNodes.map(n => ({ id: n.id, group: 'view' }));
+    if (updates.length) nodes.update(updates);
+  }
+  
+  resetViewColors();
+
+  function updateStats(text) {
+    const all = nodes.get();
+    const models = all.filter(isModelNode).length;
+    const explores = all.filter(isExploreNode).length;
+    const views = all.filter(isViewNode).length;
+    statsPill.textContent = `${text} | Models ${models} | Explores ${explores} | Views ${views}`;
+  }
+
+  network.on("stabilizationProgress", (p) => {
+    const progress = Math.round((p.iterations / p.total) * 100);
+    updateStats(`Stabilizing ${progress}%`);
+  });
+
+  network.once("stabilizationIterationsDone", () => {
+    network.setOptions({ physics: { enabled: false } });
+    updateStats("Layout ready");
+    setTimeout(() => network.fit({ animation: false }), 60);
+  });
+
+  const modelFilter = document.getElementById("modelFilter");
+  const exploreFilter = document.getElementById("exploreFilter");
+  const viewFilter = document.getElementById("viewFilter");
+
+  function setSelectOptions(selectEl, optionsArr, defaultLabel) {
+    selectEl.innerHTML = "";
+    selectEl.appendChild(Object.assign(document.createElement("option"), { value: "__ALL__", textContent: defaultLabel }));
+    optionsArr.forEach(v => {
+      selectEl.appendChild(Object.assign(document.createElement("option"), { value: v.value, textContent: v.label }));
+    });
+  }
+
+  function getModelsList() {
+    return nodes.get({ filter: isModelNode })
+      .map(n => ({ value: safeText(n.id), label: getNodeName(n) }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }
+
+  function getExploresList(modelIdOrAll) {
+    const allExplores = nodes.get({ filter: isExploreNode });
+    const filtered = (modelIdOrAll && modelIdOrAll !== "__ALL__")
+      ? allExplores.filter(ex => exploreToModel.get(ex.id) === modelIdOrAll)
+      : allExplores;
+    return filtered
+      .map(n => ({ value: safeText(n.id), label: getNodeName(n) }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }
+
+  function getViewsList() {
+    return nodes.get({ filter: isViewNode })
+      .map(n => ({ value: safeText(n.id), label: getNodeName(n) }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }
+
+  setSelectOptions(modelFilter, getModelsList(), "All models");
+  setSelectOptions(exploreFilter, getExploresList("__ALL__"), "All explores");
+  setSelectOptions(viewFilter, getViewsList(), "All views");
+
+  function applyFilter() {
+    exploreToModel = buildExploreToModelMap();
+    const selectedModel = modelFilter.value;
+    const selectedExplore = exploreFilter.value;
+    const selectedView = viewFilter.value;
+    
+    const allNodes = nodes.get({ fields: ['id', 'group'] });
+    const allEdges = edges.get({ fields: ['from', 'to', 'label'] });
+    const nodeById = new Map(allNodes.map(n => [n.id, n]));
+    const visible = new Set();
+
+    // 1. Determine visible nodes based on filter
+    if (selectedView !== "__ALL__") {
+        visible.add(selectedView);
+        const connectedEdges = network.getConnectedEdges(selectedView);
+        const parentExplores = new Set();
+        edges.get(connectedEdges).forEach(edge => {
+            const exploreNode = nodeById.get(edge.from);
+            if (exploreNode && isExploreNode(exploreNode) && edge.to === selectedView) {
+                parentExplores.add(exploreNode.id);
             }
-        },
-        physics: {
-            forceAtlas2Based: {
-                gravitationalConstant: -50,
-                centralGravity: 0.005,
-                springLength: 230,
-                springConstant: 0.18
-            },
-            minVelocity: 0.75,
-            solver: 'forceAtlas2Based'
-        },
-        interaction: {
-            hover: true,
-            tooltipDelay: 200,
-            navigationButtons: true,
-            keyboard: true
-        },
-        groups: {
-            explore: {
-                color: { background: '#C96E34', border: '#FFA500' },
-                shape: 'hexagon'
-            },
-            view: {
-                color: { background: '#348DC9', border: '#4A90E2' }
-            },
-            model: {
-                color: { background: '#5cb85c', border: '#73AD21' },
-                shape: 'database'
+        });
+        parentExplores.forEach(exploreId => {
+            visible.add(exploreId);
+            const modelId = exploreToModel.get(exploreId);
+            if (modelId) visible.add(modelId);
+        });
+
+    } else if (selectedExplore !== "__ALL__") {
+        visible.add(selectedExplore);
+        const modelId = exploreToModel.get(selectedExplore);
+        if (modelId) visible.add(modelId);
+      
+        const connectedEdges = network.getConnectedEdges(selectedExplore);
+        edges.get(connectedEdges).forEach(edge => {
+            if (edge.from === selectedExplore) {
+                const toNode = nodeById.get(edge.to);
+                if (toNode && isViewNode(toNode)) visible.add(toNode.id);
             }
-        }
-    };
+        });
+    } else if (selectedModel !== "__ALL__") {
+        visible.add(selectedModel);
+        const exploresInModel = nodes.get({ filter: n => exploreToModel.get(n.id) === selectedModel });
+        exploresInModel.forEach(exp => {
+            visible.add(exp.id);
+            const connectedEdges = network.getConnectedEdges(exp.id);
+            edges.get(connectedEdges).forEach(edge => {
+                if (edge.from === exp.id) {
+                    const toNode = nodeById.get(edge.to);
+                    if (toNode && isViewNode(toNode)) visible.add(toNode.id);
+                }
+            });
+        });
+    } else {
+      allNodes.forEach(n => visible.add(n.id));
+    }
 
-    const network = new vis.Network(container, graphData, options);
+    // 2. Apply visibility updates
+    nodes.update(allNodes.map(n => ({ id: n.id, hidden: !visible.has(n.id) })));
+    edges.update(allEdges.map(e => ({ id: e.id, hidden: !(visible.has(e.from) && visible.has(e.to)) })));
+    updateStats("Filtered");
 
+    // 3. Apply contextual coloring
+    resetViewColors();
+    if (selectedExplore !== "__ALL__") {
+        const colorUpdates = [];
+        const connectedEdges = network.getConnectedEdges(selectedExplore);
+        
+        edges.get(connectedEdges).forEach(edge => {
+            if (edge.from === selectedExplore) {
+                const toNode = nodeById.get(edge.to);
+                if (toNode && isViewNode(toNode)) {
+                    const label = safeText(edge.label).toLowerCase();
+                    if (label.includes("join")) {
+                        colorUpdates.push({ id: toNode.id, group: 'view_joined' });
+                    }
+                }
+            }
+        });
+        if (colorUpdates.length > 0) nodes.update(colorUpdates);
+    }
+  }
+
+  modelFilter.addEventListener("change", () => {
+    setSelectOptions(exploreFilter, getExploresList(modelFilter.value), "All explores");
+    viewFilter.value = "__ALL__";
+    applyFilter();
+  });
+
+  exploreFilter.addEventListener("change", () => {
+    viewFilter.value = "__ALL__";
+    const ex = exploreFilter.value;
+    if (ex !== "__ALL__") {
+      const m = exploreToModel.get(ex);
+      if (m) modelFilter.value = m;
+      setSelectOptions(exploreFilter, getExploresList(modelFilter.value), "All explores");
+      exploreFilter.value = ex;
+    }
+    applyFilter();
+  });
+  
+  viewFilter.addEventListener("change", () => {
+    modelFilter.value = "__ALL__";
+    exploreFilter.value = "__ALL__";
+    applyFilter();
+  });
+
+  document.getElementById("resetBtn").addEventListener("click", () => {
+    modelFilter.value = "__ALL__";
+    setSelectOptions(exploreFilter, getExploresList("__ALL__"), "All explores");
+    viewFilter.value = "__ALL__";
+    nodes.update(nodes.get({ fields: ['id'] }).map(n => ({ id: n.id, hidden: false })));
+    edges.update(edges.get({ fields: ['id'] }).map(e => ({ id: e.id, hidden: false })));
+    resetViewColors();
+    updateStats("Reset");
+    setTimeout(() => network.fit({ animation: false }), 40);
+  });
+
+  document.getElementById("fitBtn").addEventListener("click", () => {
+    network.fit({ animation: false });
+  });
+
+  document.getElementById("layoutBtn").addEventListener("click", () => {
+    updateStats("Layout running");
+    network.setOptions({ physics: { enabled: true } });
+    setTimeout(() => {
+      network.stabilize(180);
+      setTimeout(() => {
+        network.setOptions({ physics: { enabled: false } });
+        updateStats("Layout ready");
+        network.fit({ animation: false });
+      }, 250);
+    }, 20);
+  });
+
+  const fullscreenBtn = document.getElementById("fullscreenBtn");
+  fullscreenBtn.addEventListener("click", async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+      setTimeout(() => network.fit({ animation: false }), 120);
+    } catch (e) {
+      updateStats("Fullscreen blocked");
+    }
+  });
+
+  document.addEventListener("fullscreenchange", () => {
+    setTimeout(() => network.fit({ animation: false }), 120);
+  });
+
+  setTimeout(() => network.fit({ animation: false }), 150);
 </script>
-
 </body>
 </html>

@@ -32,8 +32,8 @@ def apply_styling():
         }
 
         /* Sidebar */
-        .css-1d391kg { /* Sidebar main */
-            background-color: #1a1f2b;
+        [data-testid="stSidebar"] {
+            width: 350px !important;
         }
 
         /* Buttons */
@@ -294,31 +294,64 @@ def generate_assessment(summary: dict) -> list:
     return sorted(assessments, key=lambda x: ("Critical", "Recommendation", "Positive").index(x['severity']))
 
 def generate_graph_data(df: pd.DataFrame) -> dict:
-    """Converts the analysis DataFrame into a vis.js compatible graph format."""
+    """
+    Converts the analysis DataFrame into a vis.js compatible graph format.
+    - Uses unique IDs to prevent node collision.
+    - Assigns mass to nodes and length to edges to create a physics-based
+      'galaxy' or 'solar system' layout.
+    """
     nodes, edges = [], []
-    node_set = set()
+    node_ids = set()
+
+    # Define mass and length for the physics simulation
+    MASS_MODEL = 10
+    MASS_EXPLORE = 4
+    MASS_VIEW = 1
+    LENGTH_MODEL_TO_EXPLORE = 450
+    LENGTH_EXPLORE_TO_VIEW = 200
 
     for _, row in df.iterrows():
-        model, explore, view = row["Model Path"], row["Explore Name"], row["View Name"]
-        
-        # Add model node
-        if model not in node_set:
-            nodes.append({"id": model, "label": model, "group": "model", "title": f"Model File: {model}"})
-            node_set.add(model)
-            
-        # Add explore node
-        if explore not in node_set:
-            nodes.append({"id": explore, "label": explore, "group": "explore", "title": f"Explore: {explore}"})
-            node_set.add(explore)
+        model_path = row["Model Path"]
+        explore_name = row["Explore Name"]
+        view_name = row["View Name"]
 
-        # Add view node
-        if view not in node_set:
-            nodes.append({"id": view, "label": view, "group": "view", "title": f"View: {view}"})
-            node_set.add(view)
+        model_node_id = f"model_{model_path}"
+        explore_node_id = f"explore_{model_path}_{explore_name}"
+        view_node_id = f"view_{view_name}"
+
+        # Add model node (the "sun")
+        if model_node_id not in node_ids:
+            nodes.append({
+                "id": model_node_id, "label": model_path, "group": "model",
+                "title": f"Model File: {model_path}", "mass": MASS_MODEL
+            })
+            node_ids.add(model_node_id)
             
-        # Add edges
-        edges.append({"from": model, "to": explore})
-        edges.append({"from": explore, "to": view, "label": row["Role"]})
+        # Add explore node (the "planet")
+        if explore_node_id not in node_ids:
+            nodes.append({
+                "id": explore_node_id, "label": explore_name, "group": "explore",
+                "title": f"Explore: {explore_name}\nModel: {model_path}", "mass": MASS_EXPLORE
+            })
+            node_ids.add(explore_node_id)
+
+        # Add view node (the "moon")
+        if view_node_id not in node_ids:
+            nodes.append({
+                "id": view_node_id, "label": view_name, "group": "view",
+                "title": f"View: {view_name}", "mass": MASS_VIEW
+            })
+            node_ids.add(view_node_id)
+            
+        # Add edges with specific lengths
+        edges.append({
+            "from": model_node_id, "to": explore_node_id, "length": LENGTH_MODEL_TO_EXPLORE,
+            "title": f"{model_path} -> {explore_name}"
+        })
+        edges.append({
+            "from": explore_node_id, "to": view_node_id, "label": row["Role"], "length": LENGTH_EXPLORE_TO_VIEW,
+            "title": f"{explore_name} -> {view_name} ({row['Role']})"
+        })
 
     return {"nodes": nodes, "edges": edges}
 
@@ -329,7 +362,16 @@ with st.sidebar:
     st.title("LookML Project Analyzer")
     st.markdown("Enter a public GitHub repository URL to analyze its LookML structure and check for best practice violations.")
     repo_url = st.text_input("GitHub Repository URL", placeholder="https://github.com/owner/repo")
-    analyze_button = st.button("Analyze Project", use_container_width=True, type="primary")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        analyze_button = st.button("Analyze Project", use_container_width=True, type="primary")
+    with col2:
+        clear_button = st.button("Reset", use_container_width=True)
+
+if clear_button:
+    st.session_state.analysis_summary = None
+    st.rerun()
 
 st.header("Analysis Results")
 
