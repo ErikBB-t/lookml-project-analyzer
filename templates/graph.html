@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>LookML Interactive Graph</title>
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style type="text/css">
+        #lookml-graph {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #4d4d4d;
+            border-radius: 8px;
+            background-color: #262730;
+        }
+    </style>
+</head>
+<body>
+
+<div id="lookml-graph"></div>
+
+<script type="text/javascript">
+    // This placeholder will be replaced by the actual graph data from Python
+    const graphData = %%graph_data%%;
+
+    const container = document.getElementById('lookml-graph');
+    const options = {
+        nodes: {
+            shape: 'box',
+            margin: 10,
+            font: {
+                color: '#FAFAFA',
+                face: 'monospace'
+            },
+            borderWidth: 2,
+            shadow: true
+        },
+        edges: {
+            arrows: 'to',
+            color: {
+                color: '#848484',
+                highlight: '#4A90E2',
+                hover: '#4A90E2'
+            },
+            font: {
+                align: 'top',
+                color: '#EAECEF'
+            },
+            smooth: {
+                type: 'cubicBezier'
+            }
+        },
+        physics: {
+            forceAtlas2Based: {
+                gravitationalConstant: -50,
+                centralGravity: 0.005,
+                springLength: 230,
+                springConstant: 0.18
+            },
+            minVelocity: 0.75,
+            solver: 'forceAtlas2Based'
+        },
+        interaction: {
+            hover: true,
+            tooltipDelay: 200,
+            navigationButtons: true,
+            keyboard: true
+        },
+        groups: {
+            explore: {
+                color: { background: '#C96E34', border: '#FFA500' },
+                shape: 'hexagon'
+            },
+            view: {
+                color: { background: '#348DC9', border: '#4A90E2' }
+            },
+            model: {
+                color: { background: '#5cb85c', border: '#73AD21' },
+                shape: 'database'
+            }
+        }
+    };
+
+    const network = new vis.Network(container, graphData, options);
+
+</script>
+
+</body>
+</html>

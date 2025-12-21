@@ -6,11 +6,12 @@ import tempfile
 import shutil
 import subprocess
 from functools import lru_cache
+import json
 
 # --- Streamlit Page Configuration & Styling ---
 st.set_page_config(
     page_title="LookML Project Analyzer",
-    page_icon="",
+    page_icon="🧩",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -292,6 +293,35 @@ def generate_assessment(summary: dict) -> list:
     
     return sorted(assessments, key=lambda x: ("Critical", "Recommendation", "Positive").index(x['severity']))
 
+def generate_graph_data(df: pd.DataFrame) -> dict:
+    """Converts the analysis DataFrame into a vis.js compatible graph format."""
+    nodes, edges = [], []
+    node_set = set()
+
+    for _, row in df.iterrows():
+        model, explore, view = row["Model Path"], row["Explore Name"], row["View Name"]
+        
+        # Add model node
+        if model not in node_set:
+            nodes.append({"id": model, "label": model, "group": "model", "title": f"Model File: {model}"})
+            node_set.add(model)
+            
+        # Add explore node
+        if explore not in node_set:
+            nodes.append({"id": explore, "label": explore, "group": "explore", "title": f"Explore: {explore}"})
+            node_set.add(explore)
+
+        # Add view node
+        if view not in node_set:
+            nodes.append({"id": view, "label": view, "group": "view", "title": f"View: {view}"})
+            node_set.add(view)
+            
+        # Add edges
+        edges.append({"from": model, "to": explore})
+        edges.append({"from": explore, "to": view, "label": row["Role"]})
+
+    return {"nodes": nodes, "edges": edges}
+
 
 # --- Streamlit App UI ---
 
@@ -357,6 +387,16 @@ if summary:
         """, unsafe_allow_html=True)
     
     if df is not None and not df.empty:
+        st.subheader("Interactive Project Graph")
+        try:
+            with open("templates/graph.html") as f:
+                graph_html = f.read()
+            graph_data = generate_graph_data(df)
+            graph_html = graph_html.replace("%%graph_data%%", json.dumps(graph_data))
+            st.components.v1.html(graph_html, height=620)
+        except Exception as e:
+            st.error(f"Could not generate interactive graph: {e}")
+
         with st.expander("Show Detailed Structure Analysis", expanded=False):
             st.dataframe(df.style.format({"Description Coverage": "{:.1%}"}), use_container_width=True)
             st.download_button(
