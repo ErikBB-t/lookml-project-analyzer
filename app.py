@@ -7,11 +7,13 @@ import shutil
 import subprocess
 from functools import lru_cache
 import json
+from PIL import Image
 
+icon = Image.open("logo.png")
 # --- Streamlit Page Configuration & Styling ---
 st.set_page_config(
     page_title="LookML Project Analyzer",
-    page_icon="logo.png",
+    page_icon=icon,
     layout="wide",
     initial_sidebar_state="expanded",
 )
