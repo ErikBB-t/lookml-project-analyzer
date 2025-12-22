@@ -68,6 +68,8 @@ After running the command above, a new tab will automatically open in your brows
 -   Click "Analyze repo".
 -   The app will clone the repository, run the analysis, and display the results.
 
+The tool performs static analysis locally on the machine where it is run and does not transmit LookML code, metadata, or results to any external services.
+
 ## How it works
 
 The application performs the following steps:
