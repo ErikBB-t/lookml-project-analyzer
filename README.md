@@ -4,6 +4,8 @@ A simple web application to analyze the structure of a Looker (LookML) project. 
 
 This provides an overview of which views are in use, where they are used, and which folder they belong to.
 
+![LookML Project Analyzer Demo](readme_gif.gif)
+
 ## Features
 
 -   **Web-based UI:** A Streamlit-based interface for exploring and understanding LookML project structure.
