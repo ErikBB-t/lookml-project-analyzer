@@ -339,9 +339,11 @@ def generate_graph_data(df: pd.DataFrame) -> dict:
 
         # Add view node (the "moon")
         if view_node_id not in node_ids:
+            view_folder = row["View Folder"]
             nodes.append({
                 "id": view_node_id, "label": view_name, "group": "view",
-                "title": f"View: {view_name}", "mass": MASS_VIEW
+                "title": f"View: {view_name}\nFolder: {view_folder}", "mass": MASS_VIEW,
+                "folder": view_folder
             })
             node_ids.add(view_node_id)
             
