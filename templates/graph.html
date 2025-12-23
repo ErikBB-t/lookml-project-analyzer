@@ -101,9 +101,12 @@
       <select id="viewFilter"></select>
     </div>
     <div class="group">
+      <label for="viewFolderFilter">View Folder</label>
+      <select id="viewFolderFilter"></select>
+    </div>
+    <div class="group">
       <button id="resetBtn" type="button">Reset</button>
-      <button id="fitBtn" type="button">Fit</button>
-      <button id="layoutBtn" type="button">Layout</button>
+      <button id="layoutBtn" type="button">Fit</button>
       <button id="fullscreenBtn" type="button">Fullscreen</button>
       <span class="pill" id="statsPill">Ready</span>
     </div>
@@ -229,6 +232,7 @@
   const modelFilter = document.getElementById("modelFilter");
   const exploreFilter = document.getElementById("exploreFilter");
   const viewFilter = document.getElementById("viewFilter");
+  const viewFolderFilter = document.getElementById("viewFolderFilter");
 
   function setSelectOptions(selectEl, optionsArr, defaultLabel) {
     selectEl.innerHTML = "";
@@ -260,23 +264,68 @@
       .sort((a, b) => a.label.localeCompare(b.label));
   }
 
+  function getFoldersList() {
+    const allViews = nodes.get({ filter: isViewNode, fields: ['folder'] });
+    const uniqueFolders = [...new Set(allViews.map(n => n.folder).filter(f => f))];
+    return uniqueFolders
+      .map(f => ({ value: safeText(f), label: safeText(f) }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }
+
+  function colorizeJoinedViews(visibleExplores) {
+    const colorUpdates = [];
+    const nodeById = new Map(nodes.get({ fields: ['id', 'group'] }).map(n => [n.id, n]));
+
+    visibleExplores.forEach(exploreId => {
+        const connectedEdges = network.getConnectedEdges(exploreId);
+        edges.get(connectedEdges).forEach(edge => {
+            if (edge.from === exploreId) {
+                const toNode = nodeById.get(edge.to);
+                if (toNode && isViewNode(toNode)) {
+                    const label = safeText(edge.label).toLowerCase();
+                    if (label.includes("join")) {
+                        colorUpdates.push({ id: toNode.id, group: 'view_joined' });
+                    }
+                }
+            }
+        });
+    });
+    if (colorUpdates.length > 0) nodes.update(colorUpdates);
+  }
+
   setSelectOptions(modelFilter, getModelsList(), "All models");
   setSelectOptions(exploreFilter, getExploresList("__ALL__"), "All explores");
   setSelectOptions(viewFilter, getViewsList(), "All views");
+  setSelectOptions(viewFolderFilter, getFoldersList(), "All folders");
 
   function applyFilter() {
     exploreToModel = buildExploreToModelMap();
     const selectedModel = modelFilter.value;
     const selectedExplore = exploreFilter.value;
     const selectedView = viewFilter.value;
+    const selectedViewFolder = viewFolderFilter.value;
     
-    const allNodes = nodes.get({ fields: ['id', 'group'] });
+    const allNodes = nodes.get({ fields: ['id', 'group', 'folder'] });
     const allEdges = edges.get({ fields: ['from', 'to', 'label'] });
     const nodeById = new Map(allNodes.map(n => [n.id, n]));
     const visible = new Set();
 
     // 1. Determine visible nodes based on filter
-    if (selectedView !== "__ALL__") {
+    if (selectedViewFolder !== "__ALL__") {
+        const viewsInFolder = allNodes.filter(n => isViewNode(n) && n.folder === selectedViewFolder);
+        viewsInFolder.forEach(viewNode => {
+            visible.add(viewNode.id);
+            const connectedEdges = network.getConnectedEdges(viewNode.id);
+            edges.get(connectedEdges).forEach(edge => {
+                const exploreNode = nodeById.get(edge.from);
+                if (exploreNode && isExploreNode(exploreNode) && edge.to === viewNode.id) {
+                    visible.add(exploreNode.id);
+                    const modelId = exploreToModel.get(exploreNode.id);
+                    if (modelId) visible.add(modelId);
+                }
+            });
+        });
+    } else if (selectedView !== "__ALL__") {
         visible.add(selectedView);
         const connectedEdges = network.getConnectedEdges(selectedView);
         const parentExplores = new Set();
@@ -328,33 +377,26 @@
 
     // 3. Apply contextual coloring
     resetViewColors();
-    if (selectedExplore !== "__ALL__") {
-        const colorUpdates = [];
-        const connectedEdges = network.getConnectedEdges(selectedExplore);
-        
-        edges.get(connectedEdges).forEach(edge => {
-            if (edge.from === selectedExplore) {
-                const toNode = nodeById.get(edge.to);
-                if (toNode && isViewNode(toNode)) {
-                    const label = safeText(edge.label).toLowerCase();
-                    if (label.includes("join")) {
-                        colorUpdates.push({ id: toNode.id, group: 'view_joined' });
-                    }
-                }
-            }
-        });
-        if (colorUpdates.length > 0) nodes.update(colorUpdates);
-    }
+    const visibleExplores = new Set();
+    visible.forEach(nodeId => {
+        const node = nodeById.get(nodeId);
+        if(node && isExploreNode(node)) {
+            visibleExplores.add(nodeId);
+        }
+    });
+    colorizeJoinedViews(visibleExplores);
   }
 
   modelFilter.addEventListener("change", () => {
     setSelectOptions(exploreFilter, getExploresList(modelFilter.value), "All explores");
     viewFilter.value = "__ALL__";
+    viewFolderFilter.value = "__ALL__";
     applyFilter();
   });
 
   exploreFilter.addEventListener("change", () => {
     viewFilter.value = "__ALL__";
+    viewFolderFilter.value = "__ALL__";
     const ex = exploreFilter.value;
     if (ex !== "__ALL__") {
       const m = exploreToModel.get(ex);
@@ -368,6 +410,14 @@
   viewFilter.addEventListener("change", () => {
     modelFilter.value = "__ALL__";
     exploreFilter.value = "__ALL__";
+    viewFolderFilter.value = "__ALL__";
+    applyFilter();
+  });
+
+  viewFolderFilter.addEventListener("change", () => {
+    modelFilter.value = "__ALL__";
+    exploreFilter.value = "__ALL__";
+    viewFilter.value = "__ALL__";
     applyFilter();
   });
 
@@ -375,6 +425,7 @@
     modelFilter.value = "__ALL__";
     setSelectOptions(exploreFilter, getExploresList("__ALL__"), "All explores");
     viewFilter.value = "__ALL__";
+    viewFolderFilter.value = "__ALL__";
     nodes.update(nodes.get({ fields: ['id'] }).map(n => ({ id: n.id, hidden: false })));
     edges.update(edges.get({ fields: ['id'] }).map(e => ({ id: e.id, hidden: false })));
     resetViewColors();
@@ -382,21 +433,8 @@
     setTimeout(() => network.fit({ animation: false }), 40);
   });
 
-  document.getElementById("fitBtn").addEventListener("click", () => {
-    network.fit({ animation: false });
-  });
-
   document.getElementById("layoutBtn").addEventListener("click", () => {
-    updateStats("Layout running");
-    network.setOptions({ physics: { enabled: true } });
-    setTimeout(() => {
-      network.stabilize(180);
-      setTimeout(() => {
-        network.setOptions({ physics: { enabled: false } });
-        updateStats("Layout ready");
-        network.fit({ animation: false });
-      }, 250);
-    }, 20);
+    network.fit({ animation: false });
   });
 
   const fullscreenBtn = document.getElementById("fullscreenBtn");
