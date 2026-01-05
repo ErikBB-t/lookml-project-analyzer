@@ -203,6 +203,62 @@
 
   const network = new vis.Network(container, { nodes, edges }, options);
 
+  let dragContext = null;
+
+  network.on("dragStart", ({ nodes: draggedNodes }) => {
+    if (!draggedNodes || draggedNodes.length !== 1) return;
+    
+    const nodeId = draggedNodes[0];
+    const node = nodes.get(nodeId);
+
+    if (isExploreNode(node)) {
+      network.setOptions({ physics: { enabled: false } }); // Keep things still
+      const explorePosition = network.getPositions([nodeId])[nodeId];
+      const connectedViewNodes = [];
+      const connectedEdges = network.getConnectedEdges(nodeId);
+      const allNodes = nodes.get({ fields: ['id', 'group'] });
+      const nodeById = new Map(allNodes.map(n => [n.id, n]));
+
+
+      edges.get(connectedEdges).forEach(edge => {
+        if (edge.from === nodeId) {
+          const toNode = nodeById.get(edge.to);
+          if (toNode && isViewNode(toNode)) {
+            const viewPosition = network.getPositions([edge.to])[edge.to];
+            connectedViewNodes.push({
+              id: edge.to,
+              dx: viewPosition.x - explorePosition.x,
+              dy: viewPosition.y - explorePosition.y,
+            });
+          }
+        }
+      });
+
+      dragContext = {
+        exploreNodeId: nodeId,
+        connectedViewNodes: connectedViewNodes,
+      };
+    }
+  });
+
+  network.on("dragging", ({ nodes: draggedNodes, pointer }) => {
+    if (dragContext && draggedNodes[0] === dragContext.exploreNodeId) {
+      const newExplorePosition = pointer.canvas;
+      
+      dragContext.connectedViewNodes.forEach(viewNode => {
+        const newX = newExplorePosition.x + viewNode.dx;
+        const newY = newExplorePosition.y + viewNode.dy;
+        network.moveNode(viewNode.id, newX, newY);
+      });
+    }
+  });
+
+  network.on("dragEnd", () => {
+    if (dragContext) {
+      dragContext = null;
+    }
+  });
+
   function resetViewColors() {
     const allViewNodes = nodes.get({ filter: isViewNode, fields: ['id'] });
     const updates = allViewNodes.map(n => ({ id: n.id, group: 'view' }));
