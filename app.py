@@ -145,7 +145,12 @@ def extract_named_blocks(text: str, keyword: str) -> list:
         close_brace_index = find_matching_brace(text, open_brace_index)
         if close_brace_index != -1:
             body = text[open_brace_index + 1 : close_brace_index]
-            blocks.append({"name": name, "body": body})
+            blocks.append({
+                "name": name, 
+                "body": body,
+                "start": m.start(),
+                "end": close_brace_index + 1,
+            })
     return blocks
 
 @lru_cache(maxsize=None)
@@ -213,8 +218,19 @@ def analyze_repo(repo_path: str):
             if "description:" in exp["body"]:
                 explores_desc += 1
             
+            join_blocks = extract_named_blocks(exp['body'], 'join')
             primary_view_name_match = re.search(r"\b(?:from|view_name)\s*:\s*([a-zA-Z0-9_]+)\b", exp["body"])
-            primary_view_name = primary_view_name_match.group(1) if primary_view_name_match else exp["name"]
+            
+            primary_view_name = exp["name"] # Default
+            if primary_view_name_match:
+                match_pos = primary_view_name_match.start()
+                in_a_join = False
+                for j in join_blocks:
+                    if match_pos > j['start'] and match_pos < j['end']:
+                        in_a_join = True
+                        break
+                if not in_a_join:
+                    primary_view_name = primary_view_name_match.group(1)
 
             meta = view_metadata.get(primary_view_name, {})
             rows.append({
@@ -224,9 +240,8 @@ def analyze_repo(repo_path: str):
                 "Extends On": view_extensions.get(primary_view_name, ""),
             })
 
-            joins = extract_named_blocks(exp["body"], "join")
-            joins_total += len(joins)
-            for j in joins:
+            joins_total += len(join_blocks)
+            for j in join_blocks:
                 if "description:" in j["body"]:
                     joins_desc += 1
                 if "relationship:" not in j["body"]:

@@ -172,7 +172,12 @@ def extract_named_blocks(text: str, keyword: str) -> list:
         if close_brace_index == -1:
             continue
         body = text[open_brace_index + 1 : close_brace_index]
-        blocks.append({"name": name, "body": body})
+        blocks.append({
+            "name": name, 
+            "body": body,
+            "start": m.start(),
+            "end": close_brace_index + 1,
+        })
     return blocks
 
 
@@ -204,8 +209,20 @@ def parse_explore_usage(model_content: str) -> list:
         explore_name = exp["name"]
         explore_body = exp["body"]
 
-        # Primary view: default is explore name, but can be overridden via from/view_name inside explore block.
-        primary_view = parse_view_override(explore_body) or explore_name
+        join_blocks = extract_named_blocks(explore_body, 'join')
+        primary_view_name_match = re.search(r"\b(?:from|view_name)\s*:\s*([a-zA-Z0-9_]+)\b", explore_body)
+        
+        primary_view = explore_name # Default
+        if primary_view_name_match:
+            match_pos = primary_view_name_match.start()
+            in_a_join = False
+            for j in join_blocks:
+                if match_pos > j['start'] and match_pos < j['end']:
+                    in_a_join = True
+                    break
+            if not in_a_join:
+                primary_view = primary_view_name_match.group(1)
+
         rows.append(
             {
                 "explore": explore_name,
@@ -216,8 +233,7 @@ def parse_explore_usage(model_content: str) -> list:
         )
 
         # Joins inside explore block
-        joins = extract_named_blocks(explore_body, "join")
-        for j in joins:
+        for j in join_blocks:
             join_name = j["name"]
             join_body = j["body"]
 

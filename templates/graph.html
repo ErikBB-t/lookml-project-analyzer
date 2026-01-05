@@ -194,7 +194,8 @@
     },
     groups: {
       explore: { color: { background: "#EA4336", border: "#5F5F67" }, shape: "hexagon" },
-      view: { color: { background: "#FBBB07", border: "#5F5F67" } },
+      view: { color: { background: "#cccccc", border: "#5F5F67" } },
+      view_primary: { color: { background: "#FBBB07", border: "#5F5F67" } },
       view_joined: { color: { background: "#2ecc71", border: "#5F5F67" } },
       model: { color: { background: "#4285F4", border: "#5F5F67" }, shape: "database" }
     }
@@ -209,6 +210,8 @@
   }
   
   resetViewColors();
+  const allExplores = nodes.get({ filter: isExploreNode, fields: ['id'] });
+  colorizeJoinedViews(allExplores.map(n => n.id));
 
   function updateStats(text) {
     const all = nodes.get();
@@ -285,6 +288,8 @@
                     const label = safeText(edge.label).toLowerCase();
                     if (label.includes("join")) {
                         colorUpdates.push({ id: toNode.id, group: 'view_joined' });
+                    } else if (label.includes("primary")) {
+                        colorUpdates.push({ id: toNode.id, group: 'view_primary' });
                     }
                 }
             }
@@ -429,6 +434,8 @@
     nodes.update(nodes.get({ fields: ['id'] }).map(n => ({ id: n.id, hidden: false })));
     edges.update(edges.get({ fields: ['id'] }).map(e => ({ id: e.id, hidden: false })));
     resetViewColors();
+    const allExplores = nodes.get({ filter: isExploreNode, fields: ['id'] });
+    colorizeJoinedViews(allExplores.map(n => n.id));
     updateStats("Reset");
     setTimeout(() => network.fit({ animation: false }), 40);
   });
