@@ -1,0 +1,15 @@
+# Ignore Git directory
+.git
+
+# Ignore Python virtual environment
+venv/
+
+# Ignore macOS system files
+.DS_Store
+
+# Ignore Python cache files
+*.pyc
+__pycache__/
+
+# Ignore the Dockerfile itself from the context
+Dockerfile
